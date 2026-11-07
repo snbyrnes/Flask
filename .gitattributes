@@ -1,0 +1,3 @@
+# Keep SMS exports byte for byte (no line-ending conversion, no text diffs).
+*.csv -text -diff
+*.gz binary
