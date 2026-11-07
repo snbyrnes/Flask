@@ -44,7 +44,7 @@ export default function App() {
       );
       setDs(d);
       setLoad({ phase: 'ready', fraction: 1, file: label });
-      document.title = `SMS Substances (${d.n.toLocaleString('en')})`;
+      document.title = `Flask (${d.n.toLocaleString('en')} substances)`;
     } catch (e) {
       if (seq !== loadSeq.current) return;
       setLoad({ phase: 'error', fraction: 0, file: label, error: e instanceof Error ? e.message : String(e) });

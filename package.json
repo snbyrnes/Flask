@@ -1,5 +1,5 @@
 {
-  "name": "sms-substances-viewer",
+  "name": "flask",
   "private": true,
   "version": "1.0.0",
   "description": "Fast local browser for EMA SPOR SMS substance list exports: search, filter, inspect and copy.",

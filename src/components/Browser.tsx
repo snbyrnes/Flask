@@ -740,7 +740,7 @@ export function Browser({ ds, settings, setSettings, available, onOpenRemote, on
           title="Start over"
         >
           <IconFlask size={22} />
-          <span className="brand-name">SMS Substances</span>
+          <span className="brand-name">Flask</span>
         </a>
         <SearchBox
           value={q}

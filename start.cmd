@@ -1,5 +1,5 @@
 @echo off
-rem Starts the SMS Substances viewer and opens it in your browser.
+rem Starts Flask, the SMS substance browser, and opens it in your browser.
 cd /d "%~dp0"
 if not exist node_modules (
   echo Installing dependencies, first run only...

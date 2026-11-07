@@ -1,11 +1,11 @@
-# SMS Substances viewer
+# Flask
 
-A fast local browser for EMA SPOR **SMS substance list** exports
+A fast browser for EMA SPOR **SMS substance list** exports
 (`sms-substances-list-YYYYMMDDhhmmss.csv`). Search all 226k names in every
 language, filter by type, domain, language, source, identifiers and data
 quality, inspect a substance, and copy anything in the shape you need.
 
-**Open it online: https://snbyrnes.github.io/substances-viewer/**
+**Open it online: https://snbyrnes.github.io/Flask/**
 
 Everything runs in your browser. The site loads the SMS export published with
 it (`data/`), and any export you open or drag onto the window is read locally
