@@ -1,5 +1,6 @@
 import { FLAG_DEFS, type FlagKey, type SortKey } from '../data/dataset';
 import { EMPTY_FILTERS, type Filters, type SortState, type Tri } from '../data/filter';
+import { isStamp } from '../data/version';
 
 export type View = 'browse' | 'lookup';
 
@@ -10,6 +11,8 @@ export interface UrlState {
   /** SMS ID of the substance shown in the detail panel. */
   sel: string | null;
   view: View;
+  /** Export version the link was made on (see data/version.ts). Left out of saved views. */
+  v?: string | null;
 }
 
 const SORTS: SortKey[] = ['relevance', 'name', 'id', 'ev', 'type', 'updated', 'created', 'mw', 'names'];
@@ -64,6 +67,7 @@ export function parseHash(hash: string): UrlState {
     sort,
     sel: p.get('s'),
     view: p.get('view') === 'lookup' ? 'lookup' : 'browse',
+    v: isStamp(p.get('v')) ? p.get('v') : null,
   };
 }
 
@@ -95,6 +99,8 @@ export function buildHash(s: UrlState, opts: { allIds?: boolean } = {}): string 
   }
   if (s.sort.key !== 'relevance' || s.sort.dir !== 'desc') p.set('sort', `${s.sort.key}.${s.sort.dir}`);
   if (s.sel) p.set('s', s.sel);
+  // Pin the export only when there is something to pin: a bare page always opens the newest.
+  if (s.v && p.toString()) p.set('v', s.v);
   const str = p.toString().replace(/%7C/gi, '|').replace(/%2C/gi, ',');
   return str ? '#' + str : '';
 }

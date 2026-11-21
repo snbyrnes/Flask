@@ -49,6 +49,7 @@ export function LoadScreen({
         <div className="load-brand">
           <IconFlask size={28} />
           <h1>Flask</h1>
+          <span className="load-tagline">SMS Substance Browser</span>
         </div>
 
         {loading && (

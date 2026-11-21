@@ -8,6 +8,8 @@ export interface Settings {
   /** Fetch structure images from PubChem automatically. */
   structures: boolean;
   detailWidth: number;
+  /** Details panel on wide screens: slides out when a substance is selected, or stays open. */
+  detailPanel: 'auto' | 'always';
   /** Lookup list output columns. */
   lookupColumns: ColKey[];
   /** Exact: substring matches only. Fuzzy: also close matches for typos. */
@@ -21,6 +23,7 @@ export const DEFAULT_SETTINGS: Settings = {
   columns: DEFAULT_TABLE_COLUMNS,
   structures: false,
   detailWidth: 440,
+  detailPanel: 'auto',
   lookupColumns: ['id', 'name', 'ev', 'type', 'current'],
   searchMode: 'exact',
   templates: DEFAULT_TEMPLATES,

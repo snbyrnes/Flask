@@ -1,0 +1,8 @@
+Flask: SMS Substance Browser
+Copyright 2026 Shane Byrnes
+
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+This licence covers the software only. The SMS substance list in ./data is
+published by the European Medicines Agency and is subject to the EMA's own
+terms of reuse.
