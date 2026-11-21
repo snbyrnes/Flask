@@ -113,7 +113,8 @@ export function DetailPanel(p: Props) {
     },
     {
       label: 'Link to this substance',
-      onSelect: () => copy(`${location.origin}${location.pathname}#s=${f.id[s]}`, 'link'),
+      // Carries the export version, so the reader is told if the data has changed since.
+      onSelect: () => copy(`${location.origin}${location.pathname}#s=${f.id[s]}${ds.stamp ? `&v=${ds.stamp}` : ''}`, 'link'),
     },
   ];
 

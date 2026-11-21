@@ -1,4 +1,4 @@
-# Flask
+# Flask: SMS Substance Browser
 
 A fast browser for EMA SPOR **SMS substance list** exports
 (`sms-substances-list-YYYYMMDDhhmmss.csv`). Search all 226k names in every
@@ -10,6 +10,14 @@ quality, inspect a substance, and copy anything in the shape you need.
 Everything runs in your browser. The site loads the SMS export published with
 it (`data/`), and any export you open or drag onto the window is read locally
 and never uploaded.
+
+> **Not an official EMA service.** This is an independent tool, not affiliated
+> with or endorsed by the European Medicines Agency. It shows a copy of the SMS
+> substance list taken on the export date shown in the app. Check anything you
+> rely on against the [SPOR portal](https://spor.ema.europa.eu/).
+
+Found a problem or want something added?
+[Open an issue](https://github.com/snbyrnes/Flask/issues/new).
 
 ## Run it locally
 
@@ -30,9 +38,14 @@ bar.
 The site rebuilds and publishes itself (GitHub Actions, `.github/workflows/pages.yml`)
 on every push to `main`. To update the data:
 
-1. Put the new `sms-substances-list-….csv` in `./data` and delete the old one.
-   Every export in `./data` is published; the newest opens first.
-2. Commit and push. The site updates about a minute later.
+1. Put the new `sms-substances-list-….csv` in `./data`. Every export in `./data`
+   is published and the newest opens first.
+2. Decide what to do with the old export. Keeping it means links people shared
+   on it still open on the same data; deleting it keeps the repository smaller
+   (each export is about 48 MB), and those links then show a note that the data
+   has changed.
+3. Commit and push. The tests run first, and the site updates about a minute
+   later if they pass.
 
 The build stores each export gzipped (about 5.5 MB instead of 48 MB) and the app
 decompresses it in the browser.
@@ -142,10 +155,43 @@ all, `Ctrl C` copy rows, `N` `I` `E` `U` copy name / SMS ID / EV code / UNII,
 `?` all shortcuts. Double-click any cell or name to copy it, right-click a row
 for more.
 
-## Notes
+## Links, versions and citing
 
 - The URL keeps the search, filters and open substance, so you can bookmark or
-  share a view. Links to the online site open on the same data for everyone.
+  share a view.
+- Every link records the export it was made on (`v=20261107032836`). If that
+  export is still published the link opens on it; if not, the reader sees a
+  note saying the data has changed since. To keep old links exact, leave older
+  exports in `./data` when you add a new one.
+- *About and data source* (bottom bar) shows the file, export date and counts,
+  explains which values come from SMS and which are worked out by the app, and
+  gives a citation line to copy.
+- New visitors get a short getting started screen. Reopen it from Display
+  settings → *Getting started…*.
+
+## Tests
+
+```sh
+npm test
+```
+
+The tests cover parsing an export, search, filters, the lookup list, replacement
+chains and shareable links, against a small export in `src/test/fixture.ts`.
+They also run before every publish.
+
+## Roadmap
+
+Planned work is tracked in the
+[roadmap issue](https://github.com/snbyrnes/Flask/issues/1), with one
+[milestone](https://github.com/snbyrnes/Flask/milestones) per phase: moving from
+the CSV export to the EMA SMS API, a data quality lens, interoperability, and
+uptake.
+
+## Notes
+
+- The details panel slides out when you select a substance and closes with `Esc`
+  or its close button, leaving the full width for results. To keep it open all
+  the time, use Display settings → *Details panel* → *Keep open*.
 - Lists, saved views, templates and settings are stored in each person's
   browser, not on the site.
 - Structure images are optional and come from PubChem by InChIKey, so they need
@@ -154,3 +200,17 @@ for more.
   the static site to `dist/` (including the gzipped exports and
   `datasets.json`). `npm run preview` serves that build.
 - Data: EMA SPOR Substance Management Service (SMS) substance list.
+
+## Licence
+
+The software is licensed under the [Apache License 2.0](LICENSE). You can use,
+adapt and redistribute it freely, provided you keep the licence and the
+[NOTICE](NOTICE) file and mark the files you change.
+
+If you adapt or redeploy it, please
+[open an issue](https://github.com/snbyrnes/Flask/issues/new) to say so. This is
+a request, not a condition of the licence: it helps to know who is using the
+tool and what they needed changed.
+
+The licence covers the code only. The SMS substance list in `data/` is published
+by the European Medicines Agency and is subject to the EMA's own terms of reuse.

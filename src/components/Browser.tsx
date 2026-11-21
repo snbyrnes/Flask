@@ -10,7 +10,9 @@ import {
   type RowCtx,
 } from '../data/columns';
 import { warmupTasks, type Dataset, type SortKey } from '../data/dataset';
-import { activeFilterCount, compute, DEFAULT_DIR, sortResults, type Filters, type SortState } from '../data/filter';
+import { activeFilterCount, compute, DEFAULT_DIR, EMPTY_FILTERS, sortResults, type Filters, type SortState } from '../data/filter';
+import { stampDate } from '../data/version';
+import { APP_NAME, APP_TAGLINE, ISSUES_URL, exportLabel } from '../about';
 import type { DatasetInfo } from '../data/loader';
 import { highlightTokens, ID_LABEL, parseQuery, runText } from '../data/search';
 import { download, stamp, toCSV, toHTML, toJSON, toMarkdown, toTSV } from '../lib/export';
@@ -36,7 +38,9 @@ import {
 } from '../ui/icons';
 import { MenuButton, MenuPopover, type MenuItem } from '../ui/Menu';
 import { useToast } from '../ui/toast';
+import { AboutDialog } from './AboutDialog';
 import { DetailPanel } from './DetailPanel';
+import { WelcomeDialog, type QualityCheck } from './WelcomeDialog';
 import { FilterPanel } from './FilterPanel';
 import { HelpDialog } from './HelpDialog';
 import { overall, type LoadState } from './LoadScreen';
@@ -52,6 +56,8 @@ interface Props {
   settings: Settings;
   setSettings: (s: Settings | ((p: Settings) => Settings)) => void;
   available: DatasetInfo[];
+  /** Export version named by the link the page was opened with, if any. */
+  linkedStamp: string | null;
   onOpenRemote: (name: string) => void;
   onOpenFile: (f: File) => void;
   loadState: LoadState;
@@ -66,9 +72,14 @@ const isEditable = (t: EventTarget | null) => {
 
 const HTML_COPY_LIMIT = 20000;
 
-export function Browser({ ds, settings, setSettings, available, onOpenRemote, onOpenFile, loadState, busy }: Props) {
+export function Browser({ ds, settings, setSettings, available, linkedStamp, onOpenRemote, onOpenFile, loadState, busy }: Props) {
   const { copy, toast } = useToast();
   const initial = useMemo(() => readHash(), []);
+  const [welcomed, setWelcomed] = useStored<boolean>('welcomed', false);
+  // First visit only, and not when a link brought the visitor to something specific.
+  const [welcomeOpen, setWelcomeOpen] = useState(() => !welcomed && !location.hash.replace(/^#/, ''));
+  const [aboutOpen, setAboutOpen] = useState(false);
+  const [linkNoteOff, setLinkNoteOff] = useState(false);
   const [q, setQ] = useState(initial.q);
   const [filters, setFilters] = useState<Filters>(initial.filters);
   const [sort, setSort] = useState<SortState>(initial.sort);
@@ -114,7 +125,7 @@ export function Browser({ ds, settings, setSettings, available, onOpenRemote, on
   useEffect(() => {
     const push = pushNext.current;
     pushNext.current = false;
-    writeHash({ q, filters, sort, sel: active !== null ? ds.f.id[active] : null, view }, push);
+    writeHash({ q, filters, sort, sel: active !== null ? ds.f.id[active] : null, view, v: ds.stamp }, push);
   }, [q, filters, sort, active, view, ds]);
 
   useEffect(() => {
@@ -443,6 +454,8 @@ export function Browser({ ds, settings, setSettings, available, onOpenRemote, on
     const startW = settings.detailWidth;
     const el = e.currentTarget as HTMLElement;
     el.setPointerCapture(e.pointerId);
+    // The slide-out transition would make the drag lag behind the pointer.
+    document.documentElement.classList.add('is-resizing');
     const onMove = (ev: PointerEvent) => {
       const w = Math.min(Math.max(340, startW + (startX - ev.clientX)), Math.min(960, window.innerWidth - 480));
       document.documentElement.style.setProperty('--detail-w', w + 'px');
@@ -450,6 +463,7 @@ export function Browser({ ds, settings, setSettings, available, onOpenRemote, on
     const onUp = (ev: PointerEvent) => {
       el.removeEventListener('pointermove', onMove);
       el.removeEventListener('pointerup', onUp);
+      document.documentElement.classList.remove('is-resizing');
       const w = Math.min(Math.max(340, startW + (startX - ev.clientX)), Math.min(960, window.innerWidth - 480));
       setSettings((st) => ({ ...st, detailWidth: w }));
     };
@@ -560,6 +574,17 @@ export function Browser({ ds, settings, setSettings, available, onOpenRemote, on
       checked: settings.density === 'compact',
       onSelect: () => setSettings((s) => ({ ...s, density: 'compact' })),
     },
+    { heading: 'Details panel' },
+    {
+      label: 'Slide out when a substance is selected',
+      checked: settings.detailPanel === 'auto',
+      onSelect: () => setSettings((s) => ({ ...s, detailPanel: 'auto' })),
+    },
+    {
+      label: 'Keep open',
+      checked: settings.detailPanel === 'always',
+      onSelect: () => setSettings((s) => ({ ...s, detailPanel: 'always' })),
+    },
     { heading: 'Structures' },
     {
       label: 'Load structure images from PubChem automatically',
@@ -568,6 +593,9 @@ export function Browser({ ds, settings, setSettings, available, onOpenRemote, on
     },
     'sep',
     { label: 'Copy templates…', onSelect: () => setTemplatesOpen(true) },
+    'sep',
+    { label: 'Getting started…', onSelect: () => setWelcomeOpen(true) },
+    { label: 'About this tool and its data…', onSelect: () => setAboutOpen(true) },
   ];
 
   const viewsItems = (): MenuItem[] => [
@@ -723,6 +751,54 @@ export function Browser({ ds, settings, setSettings, available, onOpenRemote, on
 
   const lookupMode = view === 'lookup';
   const showDetail = active !== null;
+  /** Wide screens: the panel takes no room until a substance is selected, unless set to stay open. */
+  const detailCollapsed = !showDetail && settings.detailPanel !== 'always';
+
+  // ---- Welcome / about -------------------------------------------------------------
+  const closeWelcome = () => {
+    setWelcomeOpen(false);
+    setWelcomed(true);
+  };
+  const reviewQuality = (check: QualityCheck) => {
+    closeWelcome();
+    setQ('');
+    setView('browse');
+    setActive(null);
+    setFilters('flag' in check ? { ...EMPTY_FILTERS, flags: { [check.flag]: 'yes' } } : { ...EMPTY_FILTERS, comment: check.comments });
+  };
+
+  // ---- A link made on another export ---------------------------------------------
+  const linkNote = (() => {
+    if (linkNoteOff) return null;
+    const missing =
+      initial.sel && ds.byId(initial.sel) === undefined ? (
+        <>
+          Substance <span className="mono">{initial.sel}</span> from the link is not in this export.
+        </>
+      ) : null;
+    if (linkedStamp && linkedStamp !== ds.stamp) {
+      const made = stampDate(linkedStamp);
+      return {
+        tone: 'warn',
+        body: (
+          <>
+            This link was made on the export of {made ? fmtDateObj(made) : linkedStamp}, which is not available here. You
+            are seeing the {exportLabel(ds)}, so results may differ. {missing}
+          </>
+        ),
+        newest: null,
+      };
+    }
+    const newest = available[0];
+    if (linkedStamp && newest && newest.name !== ds.raw.fileName)
+      return {
+        tone: 'info',
+        body: <>You are seeing the {exportLabel(ds)}, the one this link was made on. A newer export is available. {missing}</>,
+        newest: newest.name,
+      };
+    if (missing) return { tone: 'warn', body: missing, newest: null };
+    return null;
+  })();
 
   return (
     <div className={`app density-${settings.density}`}>
@@ -740,7 +816,10 @@ export function Browser({ ds, settings, setSettings, available, onOpenRemote, on
           title="Start over"
         >
           <IconFlask size={22} />
-          <span className="brand-name">Flask</span>
+          <span className="brand-name">
+            {APP_NAME}
+            <span className="brand-tagline">{APP_TAGLINE}</span>
+          </span>
         </a>
         <SearchBox
           value={q}
@@ -814,8 +893,28 @@ export function Browser({ ds, settings, setSettings, available, onOpenRemote, on
           Couldn't open {loadState.file}: {loadState.error} Still showing {ds.raw.fileName}.
         </div>
       )}
+      {linkNote && (
+        <div className={`banner banner-${linkNote.tone}`} role="status">
+          <span>{linkNote.body}</span>
+          {linkNote.newest && (
+            <button type="button" className="link-btn" onClick={() => onOpenRemote(linkNote.newest)}>
+              Open the newest export
+            </button>
+          )}
+          <button type="button" className="link-btn" onClick={() => setLinkNoteOff(true)}>
+            Dismiss
+          </button>
+        </div>
+      )}
 
-      <div className={'workspace' + (showDetail ? ' has-detail' : '') + (lookupMode ? ' is-lookup' : '')}>
+      <div
+        className={
+          'workspace' +
+          (showDetail ? ' has-detail' : '') +
+          (detailCollapsed ? ' detail-collapsed' : '') +
+          (lookupMode ? ' is-lookup' : '')
+        }
+      >
         {lookupMode ? (
           <LookupView
             ds={ds}
@@ -1020,7 +1119,7 @@ export function Browser({ ds, settings, setSettings, available, onOpenRemote, on
                 setView('browse');
               }}
             />
-          ) : (
+          ) : detailCollapsed ? null : (
             <DetailEmpty ds={ds} onTry={(v) => setQ(v)} />
           )}
         </aside>
@@ -1048,10 +1147,18 @@ export function Browser({ ds, settings, setSettings, available, onOpenRemote, on
           {ds.raw.fileName}
         </MenuButton>
         {ds.exportDate && <span>Exported {fmtDateObj(ds.exportDate)}</span>}
-        <span>
+        <span className="hide-sm">
           {fmtInt(ds.n)} substances, {fmtInt(ds.raw.nameCount)} names
         </span>
-        <span className="status-right hide-sm">Drop a newer export anywhere to open it</span>
+        <span className="status-right">
+          <span className="hide-md">Not an official EMA service</span>
+          <button type="button" className="status-link" onClick={() => setAboutOpen(true)}>
+            About and data source
+          </button>
+          <a className="status-link hide-sm" href={ISSUES_URL} target="_blank" rel="noreferrer noopener">
+            Report a problem
+          </a>
+        </span>
         <input
           ref={fileInput}
           type="file"
@@ -1097,6 +1204,36 @@ export function Browser({ ds, settings, setSettings, available, onOpenRemote, on
           currentFuzzy={fuzzy}
           onApply={applyView}
           onClose={() => setViewsOpen(false)}
+        />
+      )}
+      {welcomeOpen && (
+        <WelcomeDialog
+          ds={ds}
+          onClose={closeWelcome}
+          onSearch={() => {
+            closeWelcome();
+            setView('browse');
+            setTimeout(() => searchRef.current?.focus());
+          }}
+          onLookup={() => {
+            closeWelcome();
+            setView('lookup');
+          }}
+          onQuality={reviewQuality}
+          onAbout={() => {
+            closeWelcome();
+            setAboutOpen(true);
+          }}
+        />
+      )}
+      {aboutOpen && (
+        <AboutDialog
+          ds={ds}
+          onClose={() => setAboutOpen(false)}
+          onWelcome={() => {
+            setAboutOpen(false);
+            setWelcomeOpen(true);
+          }}
         />
       )}
       {helpOpen && (

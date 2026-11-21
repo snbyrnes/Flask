@@ -1,4 +1,5 @@
-import { defineConfig, type Connect, type Plugin } from 'vite';
+import type { Connect, Plugin } from 'vite';
+import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -122,4 +123,5 @@ export default defineConfig({
   server: { port: 5178 },
   preview: { port: 5178 },
   worker: { format: 'es' },
+  test: { environment: 'node', include: ['src/**/*.test.ts'] },
 });

@@ -1,6 +1,7 @@
 import { buildWordIndex, type WordIndex } from './fuzzy';
 import { norm } from './normalize';
 import type { FieldKey, RawDataset } from './types';
+import { stampDate, stampOf } from './version';
 
 export const FLAG_DEFS = [
   { key: 'inchikey', label: 'InChIKey', bit: 1 << 0 },
@@ -83,6 +84,8 @@ export class Dataset {
   readonly sourceTotals: Uint32Array;
   readonly langOrder: number[];
   readonly sourceOrder: number[];
+  /** Export version: the 14-digit timestamp in the file name, or ''. */
+  readonly stamp: string;
   readonly exportDate: Date | null;
   readonly minDate: string;
   readonly maxDate: string;
@@ -196,8 +199,8 @@ export class Dataset {
     this.langOrder = byTotal(this.langTotals, raw.langs);
     this.sourceOrder = byTotal(this.sourceTotals, raw.sources);
 
-    const m = raw.fileName.match(/(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/);
-    this.exportDate = m ? new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]) : null;
+    this.exportDate = stampDate(stampOf(raw.fileName));
+    this.stamp = this.exportDate ? stampOf(raw.fileName) : '';
   }
 
   /** Replacement chain after s: [replacedBy, replacedBy's replacement, ...]. Stops at a gap or loop. */

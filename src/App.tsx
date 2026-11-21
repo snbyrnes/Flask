@@ -3,7 +3,10 @@ import { Browser } from './components/Browser';
 import { LoadScreen, type LoadState } from './components/LoadScreen';
 import { Dataset } from './data/dataset';
 import { downloadDataset, gunzipIfNeeded, listDatasets, parseInWorker, type DatasetInfo, type LoadPhase } from './data/loader';
+import { stampOf } from './data/version';
+import { APP_TITLE } from './about';
 import { useStored } from './lib/storage';
+import { parseHash } from './lib/urlState';
 import { DEFAULT_SETTINGS, type Settings } from './settings';
 import { ToastProvider } from './ui/toast';
 
@@ -14,6 +17,12 @@ export default function App() {
   const [load, setLoad] = useState<LoadState>({ phase: 'list', fraction: 0 });
   const [dragging, setDragging] = useState(false);
   const loadSeq = useRef(0);
+  /**
+   * Export version named by the link this page was opened with. Cleared once the
+   * visitor picks an export themselves, so the "made on another export" note goes away.
+   */
+  const [linked, setLinked] = useState<string | null>(() => parseHash(location.hash).v ?? null);
+  const linkedAtStart = useRef(linked);
 
   // Theme
   useEffect(() => {
@@ -44,16 +53,22 @@ export default function App() {
       );
       setDs(d);
       setLoad({ phase: 'ready', fraction: 1, file: label });
-      document.title = `Flask (${d.n.toLocaleString('en')} substances)`;
+      document.title = APP_TITLE;
     } catch (e) {
       if (seq !== loadSeq.current) return;
       setLoad({ phase: 'error', fraction: 0, file: label, error: e instanceof Error ? e.message : String(e) });
     }
   }, []);
 
+  const loadRemote = useCallback((name: string) => run(name, (p) => downloadDataset(name, p)), [run]);
+
+  /** The visitor chose an export: that choice replaces whatever the link asked for. */
   const openRemote = useCallback(
-    (name: string) => run(name, (p) => downloadDataset(name, p)),
-    [run],
+    (name: string) => {
+      setLinked(null);
+      return loadRemote(name);
+    },
+    [loadRemote],
   );
 
   const openFile = useCallback(
@@ -62,6 +77,7 @@ export default function App() {
         setLoad((l) => ({ ...l, notice: `${file.name} is not a CSV file. Drop an SMS substances export (.csv).` }));
         return;
       }
+      setLinked(null);
       run(file.name.replace(/\.gz$/i, ''), async (p) => {
         p('download', 1);
         return gunzipIfNeeded(await file.arrayBuffer());
@@ -74,10 +90,13 @@ export default function App() {
     (async () => {
       const list = await listDatasets();
       setAvailable(list);
-      if (list.length) openRemote(list[0].name);
-      else setLoad({ phase: 'empty', fraction: 0 });
+      if (!list.length) return setLoad({ phase: 'empty', fraction: 0 });
+      // A shared link opens on the export it was made on when that export is still published.
+      const want = linkedAtStart.current;
+      const pinned = want ? list.find((d) => stampOf(d.name) === want) : undefined;
+      loadRemote((pinned ?? list[0]).name);
     })();
-  }, [openRemote]);
+  }, [loadRemote]);
 
   // Drag and drop a CSV anywhere on the window.
   useEffect(() => {
@@ -128,6 +147,7 @@ export default function App() {
           settings={settings}
           setSettings={setSettings}
           available={available}
+          linkedStamp={linked}
           onOpenRemote={openRemote}
           onOpenFile={openFile}
           loadState={load}

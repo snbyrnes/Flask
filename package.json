@@ -1,15 +1,17 @@
 {
   "name": "flask",
   "private": true,
+  "license": "Apache-2.0",
   "version": "1.0.0",
-  "description": "Fast local browser for EMA SPOR SMS substance list exports: search, filter, inspect and copy.",
+  "description": "Flask: SMS Substance Browser. Search, check and copy from EMA SPOR SMS substance list exports, in the browser.",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "start": "vite --open",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --open",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@fontsource/atkinson-hyperlegible-mono": "^5.3.0",
@@ -23,6 +25,7 @@
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^5.2.0",
     "typescript": "~5.9",
-    "vite": "^7.3.7"
+    "vite": "^7.3.7",
+    "vitest": "^5.1.1"
   }
 }
